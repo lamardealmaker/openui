@@ -12,9 +12,12 @@ export type ExampleProject = {
   description: string;
   /** Path inside the OpenUI repo, e.g. `examples/app-frameworks/vue`. */
   path: string;
-  envFile: ".env";
-  /** Primary env var to prompt for. Omit when the example needs several keys. */
-  envKey?: string;
+  env: {
+    /** Environment file relative to the example root. */
+    file: string;
+    /** Primary env var to prompt for. Omit when the example needs several keys. */
+    key?: string;
+  };
   /** Show this example in the curated interactive picker. */
   featured?: boolean;
 };
@@ -28,7 +31,7 @@ function parseCatalogEntry(item: unknown): ExampleProject {
     title?: unknown;
     description?: unknown;
     path?: unknown;
-    envKey?: unknown;
+    env?: unknown;
     featured?: unknown;
   };
   if (
@@ -48,19 +51,29 @@ function parseCatalogEntry(item: unknown): ExampleProject {
   if (!name) {
     throw catalogError(`${EXAMPLES_CATALOG_PATH} has an example with an empty path.`);
   }
-  if (entry.envKey !== undefined) {
-    if (typeof entry.envKey !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.envKey)) {
-      throw catalogError(`${EXAMPLES_CATALOG_PATH} example "${name}" has an invalid envKey.`);
+  if (
+    entry.env !== undefined &&
+    (typeof entry.env !== "object" || entry.env === null || Array.isArray(entry.env))
+  ) {
+    throw catalogError(`${EXAMPLES_CATALOG_PATH} example "${name}" has an invalid env.`);
+  }
+  const env = (entry.env ?? {}) as { file?: unknown; key?: unknown };
+  if (env.key !== undefined) {
+    if (typeof env.key !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(env.key)) {
+      throw catalogError(`${EXAMPLES_CATALOG_PATH} example "${name}" has an invalid env.key.`);
     }
+  }
+  const file = env.file ?? ".env";
+  if (typeof file !== "string" || !/^(?:[A-Za-z0-9_-]+\/)*\.env(?:\.local)?$/.test(file)) {
+    throw catalogError(`${EXAMPLES_CATALOG_PATH} example "${name}" has an invalid env.file.`);
   }
   return {
     name,
     label: entry.title,
     description: entry.description,
     path: relative.startsWith("examples/") ? relative : `examples/${relative}`,
-    envFile: ".env",
+    env: { file, key: typeof env.key === "string" ? env.key : undefined },
     featured: entry.featured === true,
-    envKey: typeof entry.envKey === "string" ? entry.envKey : undefined,
   };
 }
 
